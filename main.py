@@ -13,9 +13,10 @@ def main():
     # --- Parâmetros da Simulação ---
     sigma = 10.0
     beta = 8.0 / 3.0
-    rho = 28.0  # Valor clássico para caos
+    
+    rhos_to_simulate = [10.0, 15.0, 20.0, 28.0] # Casos de rho a serem simulados
 
-    # Condições iniciais [cite: 177] (com e=0)
+    # Condições iniciais (com e=0)
     x0 = 0.0
     y0 = 1.0 
     z0 = 20.0
@@ -23,58 +24,72 @@ def main():
 
     # Configurações de tempo
     t_initial = 0.0
-    t_final = 60.0  # Aumentar um pouco para seções de Poincaré mais povoadas
-    dt_step_attractor = 0.005 # Para atrator de alta resolução
-    dt_step_analysis = 0.01  # Para outras análises, pode ser um pouco maior
+    t_final = 100.0 
+    dt_step_analysis = 0.01 
 
     # Pasta de saída para os gráficos
     output_plot_folder = "output_plots"
-    if not os.path.exists(output_plot_folder):
-        os.makedirs(output_plot_folder)
+    poincare_folder = os.path.join(output_plot_folder, "poincare_sections")
+    timeseries_folder = os.path.join(output_plot_folder, "timeseries")
+    attractor_folder = os.path.join(output_plot_folder, "lorenz_attractor")
 
-    # --- Executar a Simulação para o Atrator de Alta Resolução ---
-    print(f"Simulando para atrator de alta resolução (dt={dt_step_attractor})...")
-    time_points_attr, states_attr = runge_kutta_4th_order_solver(
-        lorenz_system_equations, t_initial, initial_state, t_final, dt_step_attractor, sigma, rho, beta
-    )
-    plot_and_save_attractor(time_points_attr, states_attr, sigma, rho, beta, output_plot_folder, high_res=True)
+    for folder in [output_plot_folder, poincare_folder, timeseries_folder, attractor_folder]:
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+            print(f"Pasta '{folder}' criada.")
 
-    # --- Executar a Simulação para Outras Análises (se necessário com dt diferente) ---
-    # Se dt_step_analysis for o mesmo que dt_step_attractor, podemos reutilizar states_attr
-    if dt_step_analysis == dt_step_attractor:
-        time_points_analysis, states_analysis = time_points_attr, states_attr
-    else:
-        print(f"Simulando para análises gerais (dt={dt_step_analysis})...")
-        time_points_analysis, states_analysis = runge_kutta_4th_order_solver(
-            lorenz_system_equations, t_initial, initial_state, t_final, dt_step_analysis, sigma, rho, beta
+    # Definições dos planos para as seções de Poincaré
+    plane_variables_config = [
+        {'idx': 0, 'name': 'x'}, # Planos yz (x = constante)
+        {'idx': 1, 'name': 'y'}, # Planos xz (y = constante)
+        {'idx': 2, 'name': 'z'}  # Planos xy (z = constante)
+    ]
+    plane_values_to_test = [-10.0, -5.0, 0.0, 5.0, 10.0]
+
+    for rho_current in rhos_to_simulate:
+        print(f"\n--- Processando para rho = {rho_current} ---")
+
+        # --- Executar a Simulação ---
+        print(f"Simulando sistema de Lorenz (dt={dt_step_analysis})...")
+        time_points, states = runge_kutta_4th_order_solver(
+            lorenz_system_equations, t_initial, initial_state, t_final, dt_step_analysis, sigma, rho_current, beta
         )
 
-    # --- Gerar e Salvar Séries Temporais ---
-    plot_and_save_timeseries(time_points_analysis, states_analysis, sigma, rho, beta, output_plot_folder)
+        # --- Gerar e Salvar Atrator ---
+        # Gerar atrator para cada rho para referência
+        plot_and_save_attractor(
+            time_points, states, sigma, rho_current, beta, attractor_folder, 
+            high_res=(rho_current == 28.0) # Alta resolução apenas para o caso caótico principal
+        )
 
-    # --- Gerar e Salvar Seções de Poincaré ---
-    # Exemplo: Seção de Poincaré no plano z = rho - 1 (um valor comum para o Lorenz)
-    # O documento usa vários planos, ex: yz (x=const), xz (y=const), xy (z=const) [cite: 198, 211, 218, 220]
-    # Para o sistema de Lorenz com rho=28, os pontos de equilíbrio instáveis estão em z = rho - 1 = 27.
-    # Vamos testar um plano y=0, como na Figura 24 [cite: 206] (para rho=28)
-    
-    plane_coord_idx_poincare = 1  # 0 para x, 1 para y, 2 para z
-    plane_value_poincare = 0.0
-    print(f"\nGerando seção de Poincaré para o plano {['x', 'y', 'z'][plane_coord_idx_poincare]} = {plane_value_poincare}")
-    plot_and_save_poincare_section(states_analysis, plane_coord_idx_poincare, plane_value_poincare, sigma, rho, beta, output_plot_folder)
+        # --- Gerar e Salvar Séries Temporais ---
+        plot_and_save_timeseries(time_points, states, sigma, rho_current, beta, timeseries_folder)
 
-    # Outro exemplo de seção, z = 25, como na Figura 24/27 [cite: 208, 220, 222]
-    plane_coord_idx_poincare_2 = 2 
-    plane_value_poincare_2 = 25.0
-    print(f"\nGerando seção de Poincaré para o plano {['x', 'y', 'z'][plane_coord_idx_poincare_2]} = {plane_value_poincare_2}")
-    plot_and_save_poincare_section(states_analysis, plane_coord_idx_poincare_2, plane_value_poincare_2, sigma, rho, beta, output_plot_folder)
+        # --- Gerar e Salvar Seções de Poincaré para todas as combinações ---
+        print(f"\nGerando seções de Poincaré para rho = {rho_current}:")
+        for plane_var_config in plane_variables_config:
+            coord_idx = plane_var_config['idx']
+            coord_name_str = plane_var_config['name']
+            
+            for p_value in plane_values_to_test:
+                print(f"  Plano: {coord_name_str} = {p_value}")
+                
+                plot_and_save_poincare_section(
+                    states, 
+                    coord_idx, 
+                    p_value, 
+                    sigma, 
+                    rho_current,
+                    beta, 
+                    poincare_folder
+                )
+        
+        # --- Estimar Dimensão Fractal (Placeholder) ---
+        if rho_current == 28.0: # Apenas para o caso caótico como exemplo
+            print(f"\nTentando estimar a dimensão fractal para rho = {rho_current}...")
+            estimate_fractal_dimension(states)
 
-
-    # --- Estimar Dimensão Fractal (Placeholder) ---
-    print("\nTentando estimar a dimensão fractal...")
-    estimate_fractal_dimension(states_analysis)
-
-    print("\nProcesso concluído.")
+    print("\n--- Processo de simulação e geração de gráficos concluído para todos os valores de rho e planos. ---")
 
 if __name__ == "__main__":
     main()
