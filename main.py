@@ -60,8 +60,7 @@ def main():
 
         print(f"Gerando atrator para rho = {rho_current}...")
         plot_and_save_attractor(
-            time_points, states, sigma, rho_current, beta, attractor_folder, 
-            high_res=(rho_current == 28.0)
+            time_points, states, sigma, rho_current, beta, attractor_folder
         )
 
         print(f"Gerando séries temporais para rho = {rho_current}...")

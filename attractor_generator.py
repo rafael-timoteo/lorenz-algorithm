@@ -2,7 +2,7 @@
 import matplotlib.pyplot as plt
 import os
 
-def plot_and_save_attractor(time_points, states, sigma, rho, beta, output_folder, high_res=False):
+def plot_and_save_attractor(time_points, states, sigma, rho, beta, output_folder):
     """
     Plota o atrator de Lorenz em 3D e salva a imagem.
     """
@@ -10,25 +10,22 @@ def plot_and_save_attractor(time_points, states, sigma, rho, beta, output_folder
     y_t = states[:, 1]
     z_t = states[:, 2]
 
-    fig_attractor = plt.figure(figsize=(12, 10) if high_res else (10, 8))
+    fig_attractor = plt.figure(figsize=(10, 8))
     ax_attractor = fig_attractor.add_subplot(111, projection='3d')
-    ax_attractor.plot(x_t, y_t, z_t, lw=0.3 if high_res else 0.5)
+    ax_attractor.plot(x_t, y_t, z_t, lw=0.5)
     ax_attractor.set_xlabel("X(t)")
     ax_attractor.set_ylabel("Y(t)")
     ax_attractor.set_zlabel("Z(t)")
     
     title = f"Atrator de Lorenz ($\\sigma={sigma}, \\rho={rho}, \\beta={beta:.2f}$)"
-    if high_res:
-        title += " - Alta Resolução"
-    ax_attractor.set_title(title)
 
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
 
-    filename = f"atrator_lorenz_rho{rho}{'_alta_resolucao' if high_res else ''}.png"
+    filename = f"atrator_lorenz_rho{rho}.png"
     filepath = os.path.join(output_folder, filename)
     
-    plt.savefig(filepath, dpi=700 if high_res else 150)
+    plt.savefig(filepath, dpi=1000)
     print(f"Atrator salvo em: {filepath}")
-    # plt.show() # Comente ou remova se não quiser exibir interativamente
-    plt.close(fig_attractor) # Fecha a figura para liberar memória
+    
+    plt.close(fig_attractor)
