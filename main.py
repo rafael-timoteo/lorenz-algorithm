@@ -7,6 +7,8 @@ import os
 from lorenz_solver import lorenz_system_equations, runge_kutta_4th_order_solver
 from attractor_generator import plot_and_save_attractor
 from timeseries_generator import plot_and_save_timeseries
+from lyapunov import LyapunovExponents
+from fractal_dimension_kaplan_yorke import FractalDimension
 
 # Para Abordagem 1: Seções de Poincaré Individuais
 from poincare_sections import plot_and_save_poincare_section 
@@ -49,10 +51,14 @@ def main():
     attractor_folder = os.path.join(output_plot_folder, "lorenz_attractor")
     # Pasta para o gráfico log-log da dimensão fractal, se gerado
     fractal_plot_output_folder = os.path.join(output_plot_folder, "fractal_dimension_analysis")
-
+    
+    # Novas pastas específicas para Lyapunov e Dimensão Fractal de Kaplan-Yorke
+    lyapunov_folder = os.path.join(output_plot_folder, "lyapunov_exponents")
+    kaplan_yorke_folder = os.path.join(output_plot_folder, "kaplan_yorke_dimension")
 
     for folder in [output_plot_folder, poincare_individual_folder, poincare_row_images_folder, 
-                   timeseries_folder, attractor_folder, fractal_plot_output_folder]:
+                   timeseries_folder, attractor_folder, fractal_plot_output_folder,
+                   lyapunov_folder, kaplan_yorke_folder]:
         if not os.path.exists(folder):
             os.makedirs(folder)
             print(f"Pasta '{folder}' criada.")
@@ -220,6 +226,99 @@ def main():
         plt.close(fig) 
     print("Geração das 5 imagens de Poincaré (1x3) concluída.")
     print("\n--- Processo de simulação e geração de todos os gráficos concluído. ---")
+
+    # Criar instância da classe
+    lyap = LyapunovExponents()
+        
+    # Calcular o espectro de Lyapunov para cada valor de rho
+    print("Iniciando cálculos para o espectro de Lyapunov...")
+    results = lyap.compute_lorenz_spectrum(rhos_to_simulate)
+    
+    # Criar tabela com os resultados
+    df_table = lyap.create_spectrum_table(results, rhos_to_simulate)
+    print("\n Espectro de Lyapunov")
+    print(df_table.to_string(index=False, float_format="%.2f"))
+    
+    # Gerar gráficos na pasta específica de Lyapunov
+    lyap.plot_spectrum(results, rhos_to_simulate, 
+                      filename=os.path.join(lyapunov_folder, 'Espectro_Lyapunov.png'),
+                      csv_filename=os.path.join(lyapunov_folder, 'espectro_lyapunov_data.csv'))
+    print(f"\nGráfico '{os.path.join(lyapunov_folder, 'Espectro_Lyapunov.png')}' foi salvo.")
+    
+    # Calcular o maior expoente de Lyapunov com um tempo de simulação maior
+    print("\nIniciando cálculos para o maior expoente de Lyapunov")
+    results_long = lyap.compute_lorenz_spectrum(rhos_to_simulate, t_span=(0, 100))
+    
+    # Exportar a tabela para CSV na pasta específica
+    lyap.export_spectrum_table_to_csv(results, rhos_to_simulate, 
+                                     filename=os.path.join(lyapunov_folder, 'espectro_lyapunov_tabela.csv'))
+    print(f"Tabela de expoentes de Lyapunov exportada para '{os.path.join(lyapunov_folder, 'espectro_lyapunov_tabela.csv')}'")
+
+    # Gerar gráfico do maior expoente na pasta específica
+    lyap.plot_largest_exponent(results_long, rhos_to_simulate,
+                              filename=os.path.join(lyapunov_folder, 'Maior_Expoente_Lyapunov.png'),
+                              csv_filename=os.path.join(lyapunov_folder, 'maior_expoente_lyapunov_data.csv'))
+    print(f"Gráfico '{os.path.join(lyapunov_folder, 'Maior_Expoente_Lyapunov.png')}' foi salvo.")
+
+    print("--- Calculando a Dimensão Fractal (Kaplan-Yorke) para o Sistema de Lorenz ---\n")
+    
+    # Criar instância da classe
+    fractal_calculator = FractalDimension()
+    
+    # Definir valores de rho para análise
+    rho_values = [10.0, 15.0, 20.0, 28.0, 35.0, 40.0]
+    
+    print(f"Calculando dimensões fractais para valores de ρ: {rho_values}")
+    
+    # Calcular as dimensões fractais
+    dimensions, results = fractal_calculator.compute_dimensions_for_lorenz(
+        rho_values, 
+        t_span=(0, 100),  # Tempo mais longo para melhor convergência
+        dt=0.1,
+        transient_time=20  # Descartar o transiente
+    )
+    
+    # Exportar para CSV na pasta específica
+    df = fractal_calculator.export_dimensions_to_csv(dimensions, rho_values,
+                                                   filename=os.path.join(kaplan_yorke_folder, 'dimensoes_fractais.csv'))
+    print(f"\nDados exportados para '{os.path.join(kaplan_yorke_folder, 'dimensoes_fractais.csv')}'")
+    
+    # Mostrar tabela de resultados
+    print("\nTabela de Dimensões Fractais:")
+    print(df.to_string(index=False, float_format="%.4f"))
+    
+    # Exibir detalhes para rho = 28.0 (regime caótico)
+    fractal_calculator.print_kaplan_yorke_details(dimensions, 28)
+    
+    # Exibir detalhes no formato desejado para rho = 28.0
+    fractal_calculator.print_lyapunov_dimension_details(dimensions, 28.0)
+
+    # Exportar detalhes para arquivo texto no formato desejado
+    fractal_calculator.export_lyapunov_dimension_to_txt(
+        dimensions, 28.0, 
+        os.path.join(kaplan_yorke_folder, 'dimensao_lyapunov_rho28.txt')
+    )
+
+    # Gerar gráficos na pasta específica
+    fractal_calculator.plot_dimensions(dimensions, rho_values,
+                                     filename=os.path.join(kaplan_yorke_folder, 'Dimensao_Fractal.png'))
+    print(f"\nGráfico '{os.path.join(kaplan_yorke_folder, 'Dimensao_Fractal.png')}' foi salvo.")
+    
+    # Exportar resumo da análise para CSV na pasta específica
+    fractal_calculator.export_analysis_summary(dimensions, rho_values, 
+                                             filename=os.path.join(kaplan_yorke_folder, 'resumo_analise.csv'))
+    print(f"Resumo da análise exportado para '{os.path.join(kaplan_yorke_folder, 'resumo_analise.csv')}'")
+
+    # Exportar resumo da análise para TXT na pasta específica
+    fractal_calculator.export_analysis_summary(dimensions, rho_values, 
+                                             filename=os.path.join(kaplan_yorke_folder, 'resumo_analise.txt'), 
+                                             format='txt')
+    print(f"Resumo da análise exportado para '{os.path.join(kaplan_yorke_folder, 'resumo_analise.txt')}'")
+
+    # Exportar análise detalhada para TXT na pasta específica
+    fractal_calculator.export_analysis_summary_with_details(dimensions, rho_values, 
+                                                          filename=os.path.join(kaplan_yorke_folder, 'analise_detalhada.txt'))
+    print(f"Análise detalhada exportada para '{os.path.join(kaplan_yorke_folder, 'analise_detalhada.txt')}'")
 
 if __name__ == "__main__":
     main()
