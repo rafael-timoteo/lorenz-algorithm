@@ -1,0 +1,16 @@
+Resumo da Análise de Dimensão Fractal e Expoentes de Lyapunov
+==========================================================
+
+   ρ     |  Dimensão  |     λ1     |   Estado  
+---------------------------------------------
+    10.0 |     0.0000 |    -0.5953 |  regular  
+    15.0 |     0.0000 |    -0.3525 |  regular  
+    20.0 |     0.0000 |    -0.1581 |  regular  
+    28.0 |     2.0599 |     0.8863 |  caótico  
+    35.0 |     2.0700 |     0.9982 |  caótico  
+    40.0 |     2.0754 |     1.1398 |  caótico  
+
+Notas:
+- Um sistema é considerado caótico quando λ1 > 0
+- A dimensão de Kaplan-Yorke (D_KY) é calculada como j + (λ₁ + λ₂ + ... + λⱼ) / |λⱼ₊₁|
+  onde j é o maior índice tal que a soma dos j primeiros expoentes é positiva

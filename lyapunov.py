@@ -19,7 +19,10 @@ class LyapunovExponents:
         initial_state,
         t_span,
         dt,
-        transient_time=0
+        transient_time=0.0,
+        rtol=1e-9,
+        atol=1e-12,
+        max_step=None,
     ):
         """
         Calcula o espectro de expoentes de Lyapunov e seu histórico temporal
@@ -36,15 +39,22 @@ class LyapunovExponents:
             t_span (tuple): Intervalo de tempo da simulação (t_start, t_end).
             dt (float): Passo de tempo para a reortogonalização.
             transient_time (float, optional): Tempo inicial para descarte (regime transiente).
+            rtol (float, optional): Tolerância relativa do integrador (solve_ivp).
+            atol (float, optional): Tolerância absoluta do integrador (solve_ivp).
+            max_step (float, optional): Passo máximo permitido pelo integrador.
+                                        Se None, usa o próprio dt.
 
         Returns:
             tuple: Uma tupla contendo:
-                - np.ndarray: Expoentes de Lyapunov finais.
-                - np.ndarray: Vetor de pontos de tempo.
-                - np.ndarray: Matriz 2D com o histórico dos expoentes.
+                - np.ndarray: Expoentes de Lyapunov finais (ordenados decrescentemente).
+                - np.ndarray: Vetor de pontos de tempo (já sem o transiente).
+                - np.ndarray: Matriz 2D com o histórico dos expoentes (ordenados a cada passo).
         """
         n = len(initial_state)
         t_start, t_end = t_span
+
+        if max_step is None:
+            max_step = dt
 
         # Define o sistema combinado (equações do sistema + equações do mapa tangente).
         # O sistema completo possui n + n*n equações. 
@@ -53,17 +63,31 @@ class LyapunovExponents:
             phi_matrix = y_flat[n:].reshape((n, n))
             d_state_dt = system_dynamics(t, state_vector)
             J = jacobian_func(state_vector)
-            d_phi_dt = J @ phi_matrix # d(phi)/dt = J * phi
+            d_phi_dt = J @ phi_matrix  # d(phi)/dt = J * phi
             return np.concatenate((d_state_dt, d_phi_dt.flatten()))
 
-        # Fase transiente: evolui o sistema para o atrator antes de iniciar os cálculos.
-        if transient_time > 0:
+        # ------------------------------
+        # 1) Fase transiente (queima)
+        # ------------------------------
+        if transient_time > 0.0:
             transient_span = (t_start, t_start + transient_time)
-            sol = solve_ivp(system_dynamics, transient_span, initial_state, dense_output=True, method='RK45')
+            sol = solve_ivp(
+                system_dynamics,
+                transient_span,
+                initial_state,
+                dense_output=True,
+                method='RK45',
+                rtol=rtol,
+                atol=atol,
+                max_step=max_step,
+            )
+            # Novo estado inicial já no atrator (aproximadamente)
             initial_state = sol.sol(transient_span[1])
             t_start = t_start + transient_time
 
-        # Inicializa a matriz de perturbação como a matriz identidade. 
+        # ------------------------------
+        # 2) Integração com mapa tangente
+        # ------------------------------
         phi = np.identity(n)
         y_combined_initial = np.concatenate((initial_state, phi.flatten()))
         lyapunov_sum = np.zeros(n)
@@ -74,8 +98,16 @@ class LyapunovExponents:
         
         # Loop principal de integração e cálculo.
         while current_time < t_end:
-            integration_span = (current_time, current_time + dt)
-            sol = solve_ivp(combined_system, integration_span, y_combined_initial, method='RK45')
+            integration_span = (current_time, min(current_time + dt, t_end))
+            sol = solve_ivp(
+                combined_system,
+                integration_span,
+                y_combined_initial,
+                method='RK45',
+                rtol=rtol,
+                atol=atol,
+                max_step=max_step,
+            )
             
             y_combined_final = sol.y[:, -1]
             current_state = y_combined_final[:n]
@@ -87,17 +119,21 @@ class LyapunovExponents:
             # As normas dos vetores para o cálculo dos expoentes são a diagonal de R.
             norms = np.abs(np.diag(R))
             
+            # Evita log(0) se, por algum motivo numérico, algum valor for 0.
+            norms[norms == 0] = 1e-300
+            
             # Acumula a soma dos logaritmos das normas.
-            lyapunov_sum += np.log(norms, where=(norms > 0))
+            lyapunov_sum += np.log(norms)
 
             # A nova matriz de perturbação para o próximo passo é a matriz ortonormal Q.
             y_combined_initial = np.concatenate((current_state, Q.flatten()))
-            current_time += dt
+            current_time = integration_span[1]
 
             # Armazena o histórico para a plotagem dos gráficos.
             times.append(current_time - t_start)
             # Calcula o expoente médio até o momento atual.
-            current_exponents = lyapunov_sum / (current_time - t_start)
+            elapsed_time = current_time - t_start
+            current_exponents = lyapunov_sum / elapsed_time
             lyapunov_history.append(np.sort(current_exponents)[::-1])
 
         total_time = t_end - t_start
@@ -105,16 +141,30 @@ class LyapunovExponents:
         
         return np.sort(final_lyapunov_exponents)[::-1], np.array(times), np.array(lyapunov_history)
     
-    def compute_lorenz_spectrum(self, rho_values, initial_state=None, t_span=(0, 60), dt=0.1, transient_time=0):
+    def compute_lorenz_spectrum(
+        self,
+        rho_values,
+        initial_state=None,
+        t_span=(0.0, 200.0),
+        dt=0.05,
+        transient_time=50.0,
+        rtol=1e-9,
+        atol=1e-12,
+        max_step=None,
+    ):
         """
         Calcula o espectro de Lyapunov para o sistema de Lorenz com diferentes valores de rho.
         
         Args:
             rho_values (list): Lista de valores do parâmetro rho para análise.
-            initial_state (np.ndarray, optional): Vetor de estado inicial. Default [0.0, 1.0, 1.05].
+            initial_state (np.ndarray, optional): Vetor de estado inicial.
+                                                  Default [0.0, 1.0, 1.05].
             t_span (tuple, optional): Intervalo de tempo da simulação.
             dt (float, optional): Passo de tempo para a reortogonalização.
             transient_time (float, optional): Tempo inicial para descarte.
+            rtol (float, optional): Tolerância relativa do integrador (solve_ivp).
+            atol (float, optional): Tolerância absoluta do integrador (solve_ivp).
+            max_step (float, optional): Passo máximo permitido pelo integrador.
             
         Returns:
             dict: Dicionário com os resultados para cada valor de rho.
@@ -123,7 +173,7 @@ class LyapunovExponents:
             initial_state = np.array([0.0, 1.0, 1.05])
         
         sigma = 10.0
-        beta = 8.0/3.0
+        beta = 8.0 / 3.0
         
         results = {}
         
@@ -139,9 +189,9 @@ class LyapunovExponents:
             def lorenz_jacobian(y):
                 x, y_coord, z = y
                 return np.array([
-                    [-sigma, sigma, 0],
-                    [r - z, -1, -x],
-                    [y_coord, x, -beta]
+                    [-sigma,    sigma,      0.0],
+                    [r - z,     -1.0,      -x  ],
+                    [y_coord,   x,         -beta]
                 ])
             
             final_exponents, times, history = self.tangent_map_lyapunov_with_history(
@@ -150,7 +200,10 @@ class LyapunovExponents:
                 initial_state,
                 t_span,
                 dt,
-                transient_time
+                transient_time=transient_time,
+                rtol=rtol,
+                atol=atol,
+                max_step=max_step,
             )
             results[r] = {'final': final_exponents, 'times': times, 'history': history}
             
@@ -177,40 +230,30 @@ class LyapunovExponents:
 
     def export_spectrum_data_to_csv(self, results, rho_values, filename='espectro_lyapunov_data.csv'):
         """
-        Exporta os dados do espectro de Lyapunov para um arquivo CSV.
+        Exporta los dados do espectro de Lyapunov para um arquivo CSV.
         
         Args:
             results (dict): Resultados do cálculo de expoentes de Lyapunov.
             rho_values (list): Lista de valores de rho.
             filename (str, optional): Nome do arquivo CSV para salvar os dados.
         """
-        # Criar um DataFrame vazio
         all_data = pd.DataFrame()
         
-        # Para cada valor de rho, criar colunas para o tempo e os expoentes
         for r in rho_values:
             history = results[r]['history']
             times = results[r]['times']
             
-            # Criar um DataFrame temporário para este valor de rho
             temp_df = pd.DataFrame({'time': times})
             
-            # Adicionar colunas para cada expoente
             for j in range(history.shape[1]):
                 temp_df[f'lambda{j+1}_rho{r}'] = history[:, j]
                 
-            # Se é o primeiro conjunto de dados, use-o como base
             if all_data.empty:
                 all_data = temp_df
             else:
-                # Senão, faça um merge baseado no tempo (pode haver pequenas diferenças)
-                # Usando o método outer para garantir que todos os pontos de tempo sejam incluídos
                 all_data = pd.merge(all_data, temp_df, on='time', how='outer')
         
-        # Ordenar pelo tempo
         all_data = all_data.sort_values('time')
-        
-        # Salvar no arquivo CSV
         all_data.to_csv(filename, index=False)
         return all_data
         
@@ -223,31 +266,21 @@ class LyapunovExponents:
             rho_values (list): Lista de valores de rho.
             filename (str, optional): Nome do arquivo CSV para salvar os dados.
         """
-        # Criar um DataFrame vazio
         all_data = pd.DataFrame()
         
-        # Para cada valor de rho, criar colunas para o tempo e o maior expoente
         for r in rho_values:
             history = results[r]['history']
             times = results[r]['times']
             
-            # Criar um DataFrame temporário para este valor de rho
             temp_df = pd.DataFrame({'time': times})
-            
-            # Adicionar coluna para o maior expoente (índice 0)
             temp_df[f'lambda1_rho{r}'] = history[:, 0]
                 
-            # Se é o primeiro conjunto de dados, use-o como base
             if all_data.empty:
                 all_data = temp_df
             else:
-                # Senão, faça um merge baseado no tempo
                 all_data = pd.merge(all_data, temp_df, on='time', how='outer')
         
-        # Ordenar pelo tempo
         all_data = all_data.sort_values('time')
-        
-        # Salvar no arquivo CSV
         all_data.to_csv(filename, index=False)
         return all_data
 
@@ -262,7 +295,11 @@ class LyapunovExponents:
             filename (str, optional): Nome do arquivo para salvar o gráfico.
             csv_filename (str, optional): Nome do arquivo CSV para salvar os dados.
         """
-        fig, axes = plt.subplots(2, 2, figsize=(10, 8))
+        n_plots = len(rho_values)
+        n_cols = 3
+        n_rows = int(np.ceil(n_plots / n_cols))
+        
+        fig, axes = plt.subplots(n_rows, n_cols, figsize=(15, 4*n_rows))
         fig.suptitle('Espectro de Lyapunov', fontsize=16)
         axes = axes.flatten()
 
@@ -273,16 +310,18 @@ class LyapunovExponents:
             for j in range(history.shape[1]):
                 ax.plot(t, history[:, j], label=f'λ{j+1}')
             ax.set_title(f'ρ = {r}')
-            ax.set_ylabel('λ[nats/s]')
-            ax.set_xlabel('t[s]')
+            ax.set_ylabel('λ [nats/s]')
+            ax.set_xlabel('t [s]')
             ax.legend()
             ax.grid(True)
+        
+        for i in range(n_plots, len(axes)):
+            fig.delaxes(axes[i])
 
         plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-        fig.savefig(filename)
+        fig.savefig(filename, dpi=300, bbox_inches='tight')
         plt.close(fig)
         
-        # Exportar dados para CSV
         self.export_spectrum_data_to_csv(results, rho_values, csv_filename)
         
     def plot_largest_exponent(self, results, rho_values, filename='Maior_Expoente_Lyapunov.png', csv_filename='maior_expoente_lyapunov_data.csv'):
@@ -305,8 +344,8 @@ class LyapunovExponents:
             ax.plot(t, history[:, 0], label=f'λ1: ρ = {r}', linestyle=styles[min(i, len(styles)-1)])
 
         ax.set_title('Maior Expoente de Lyapunov')
-        ax.set_xlabel('t[s]')
-        ax.set_ylabel('λ[nats/s]')
+        ax.set_xlabel('t [s]')
+        ax.set_ylabel('λ [nats/s]')
         ax.axhline(0, color='black', linewidth=0.8)
         ax.legend()
         ax.grid(True)
@@ -314,7 +353,6 @@ class LyapunovExponents:
         fig.savefig(filename)
         plt.close(fig)
         
-        # Exportar dados para CSV
         self.export_largest_exponent_data_to_csv(results, rho_values, csv_filename)
 
     def export_spectrum_table_to_csv(self, results, rho_values, filename='espectro_lyapunov_tabela.csv'):
@@ -329,10 +367,6 @@ class LyapunovExponents:
         Returns:
             pd.DataFrame: Tabela com os valores dos expoentes.
         """
-        # Criar a tabela usando o método já existente
         df_table = self.create_spectrum_table(results, rho_values)
-        
-        # Salvar no arquivo CSV
-        df_table.to_csv(filename, index=False, float_format="%.2f")
-        
+        df_table.to_csv(filename, index=False, float_format="%.4f")
         return df_table

@@ -1,0 +1,30 @@
+{
+  "windows": {
+    "uncontrolled": {
+      "t_window": "t < 215.0",
+      "points": 21501
+    },
+    "controlled": {
+      "t_window": "t >= 215.0",
+      "points": 18500
+    }
+  },
+  "orbit_estimates": {
+    "z_peaks_uncontrolled": 289,
+    "z_peaks_controlled": 45
+  },
+  "params": {
+    "sigma": 10.0,
+    "rho": 28.0,
+    "beta": 2.6666666666666665,
+    "dt": 0.01,
+    "t_end_unc": 215.0,
+    "t_end_ctl": 400.0,
+    "t_control": 200.0,
+    "eta": 2.0,
+    "epsilon": 0.1,
+    "x_eq": 8.48528137423857,
+    "y_eq": 8.48528137423857,
+    "z_eq": 27.0
+  }
+}
