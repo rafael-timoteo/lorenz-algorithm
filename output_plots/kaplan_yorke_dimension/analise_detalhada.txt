@@ -1,0 +1,60 @@
+Análise Detalhada de Dimensão Fractal (Kaplan-Yorke)
+=================================================
+
+Dimensão de Kaplan-Yorke para ρ = 10.0:
+  Expoentes de Lyapunov: λ1 = -0.5953, λ2 = -0.6097, λ3 = -12.4751
+  A soma dos expoentes λ1 + λ2 = -1.2050 não é positiva.
+  ---> Não foi possível calcular a dimensão fractal (todos os expoentes são negativos).
+  Regime dinâmico: regular
+
+------------------------------------------------------------
+
+Dimensão de Kaplan-Yorke para ρ = 15.0:
+  Expoentes de Lyapunov: λ1 = -0.3525, λ2 = -0.3608, λ3 = -12.9655
+  A soma dos expoentes λ1 + λ2 = -0.7133 não é positiva.
+  ---> Não foi possível calcular a dimensão fractal (todos os expoentes são negativos).
+  Regime dinâmico: regular
+
+------------------------------------------------------------
+
+Dimensão de Kaplan-Yorke para ρ = 20.0:
+  Expoentes de Lyapunov: λ1 = -0.1581, λ2 = -0.1638, λ3 = -13.3560
+  A soma dos expoentes λ1 + λ2 = -0.3219 não é positiva.
+  ---> Não foi possível calcular a dimensão fractal (todos os expoentes são negativos).
+  Regime dinâmico: regular
+
+------------------------------------------------------------
+
+Dimensão de Kaplan-Yorke para ρ = 28.0:
+  Expoentes de Lyapunov: λ1 = 0.8863, λ2 = -0.0151, λ3 = -14.5512
+  Soma dos dois maiores expoentes é positiva (0.8711).
+  Dimensão de Kaplan-Yorke (D_KY) = 2 + (0.8863 + -0.0151) / |-14.5512|
+  ---> Dimensão Fractal Estimada = 2.0599
+  Regime dinâmico: caótico
+
+------------------------------------------------------------
+
+Dimensão de Kaplan-Yorke para ρ = 35.0:
+  Expoentes de Lyapunov: λ1 = 0.9982, λ2 = 0.0315, λ3 = -14.7102
+  Soma dos dois maiores expoentes é positiva (1.0297).
+  Dimensão de Kaplan-Yorke (D_KY) = 2 + (0.9982 + 0.0315) / |-14.7102|
+  ---> Dimensão Fractal Estimada = 2.0700
+  Regime dinâmico: caótico
+
+------------------------------------------------------------
+
+Dimensão de Kaplan-Yorke para ρ = 40.0:
+  Expoentes de Lyapunov: λ1 = 1.1398, λ2 = -0.0243, λ3 = -14.7964
+  Soma dos dois maiores expoentes é positiva (1.1156).
+  Dimensão de Kaplan-Yorke (D_KY) = 2 + (1.1398 + -0.0243) / |-14.7964|
+  ---> Dimensão Fractal Estimada = 2.0754
+  Regime dinâmico: caótico
+
+------------------------------------------------------------
+
+
+Interpretação:
+- Um sistema é considerado caótico quando o maior expoente de Lyapunov (λ1) é positivo.
+- Para o sistema de Lorenz, a transição para o caos ocorre em torno de ρ ≈ 24.
+- A dimensão fractal aumenta com ρ no regime caótico, indicando maior complexidade.
+- Para ρ = 28 (caso clássico de caos), a dimensão fractal é tipicamente próxima de 2.05.

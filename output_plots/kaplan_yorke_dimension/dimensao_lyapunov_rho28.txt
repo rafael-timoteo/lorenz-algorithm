@@ -1,0 +1,8 @@
+Expoentes de Lyapunov Finais:
+  lambda_1 = 0.8863
+  lambda_2 = -0.0151
+  lambda_3 = -14.5512
+
+Soma dos dois maiores expoentes é positiva (0.8711).
+Dimensão de Kaplan-Yorke (D_ky) = 2 + (0.8863 + -0.0151) / |-14.5512|
+---> Dimensão Fractal Estimada = 2.0599
